@@ -400,7 +400,7 @@ function renderMechanics(mechanics, searchQuery = "") {
     if (verifiedList.length > 0) {
         const vHeader = document.createElement('h3');
         vHeader.style.cssText = "font-size:14px; color:#0b7f40; margin:16px 0 8px 0; border-bottom:1px solid #e0e0e0; padding-bottom:4px;";
-        vHeader.innerHTML = "✅ Verified Mechanics";
+       vHeader.innerHTML = "✅ Verified Mechanics (App Registered)";
         listContainer.appendChild(vHeader);
         verifiedList.forEach(m => renderCard(m, listContainer));
     }
