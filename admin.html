@@ -1,0 +1,310 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Vahan Seva - Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background: #f4f6fb; color: #0e1a2b; }
+        .topbar { background: #0b4dff; color: #fff; padding: 14px 24px; font-size: 20px; font-weight: 900; }
+        .container { max-width: 700px; margin: 30px auto; padding: 0 16px; }
+
+        /* Login */
+        #login-section { background: #fff; border-radius: 18px; padding: 32px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+        #login-section h2 { margin-bottom: 20px; font-size: 22px; }
+        .field { margin-bottom: 16px; }
+        label { display: block; font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+        input[type="text"], input[type="password"] {
+            width: 100%; padding: 12px; border-radius: 12px;
+            border: 1px solid #e0e5f0; font-size: 14px; background: #f7f8fb; outline: none;
+        }
+        .btn { border: none; border-radius: 12px; padding: 13px 20px; font-weight: 800;
+               font-size: 15px; cursor: pointer; width: 100%; margin-top: 8px; }
+        .btn-blue { background: #0b4dff; color: #fff; }
+        .btn-green { background: #0aa04f; color: #fff; width: auto; padding: 8px 18px; font-size: 13px; }
+        .btn-red { background: #e53935; color: #fff; width: auto; padding: 8px 18px; font-size: 13px; }
+        .error { color: #e53935; font-size: 13px; margin-top: 10px; }
+
+        /* Dashboard */
+        #dashboard-section { display: none; }
+        .dash-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .dash-header h2 { font-size: 20px; }
+        .logout { font-size: 13px; color: #0b4dff; cursor: pointer; font-weight: 700; }
+        .card { background: #fff; border-radius: 16px; padding: 16px; margin-bottom: 14px;
+                border: 1px solid #eef1f7; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+        .card-info { flex: 1; }
+        .card-name { font-weight: 900; font-size: 16px; margin-bottom: 4px; }
+        .card-sub { font-size: 13px; color: #6b7a90; line-height: 1.5; }
+        .empty { text-align: center; padding: 40px; color: #6b7a90; background: #fff;
+                 border-radius: 16px; border: 1px solid #eef1f7; }
+        .badge-pending { background: #fff3e0; color: #e65100; border-radius: 999px;
+                         padding: 4px 10px; font-size: 12px; font-weight: 700; }
+    </style>
+</head>
+<body>
+
+<div class="topbar">Vahan Seva — Admin Panel</div>
+
+<div class="container">
+
+    <!-- LOGIN -->
+    <div id="login-section">
+        <h2> Admin Login</h2>
+        <div class="field">
+            <label>Username</label>
+            <input type="text" id="username" placeholder="Enter username" />
+        </div>
+        <div class="field">
+            <label>Password</label>
+            <input type="password" id="password" placeholder="Enter password" />
+        </div>
+        <button class="btn btn-blue" onclick="handleLogin()">Login</button>
+        <div class="error" id="login-error"></div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dashboard-section">
+    <div class="dash-header">
+        <h2>⏳ Pending Mechanic Approvals</h2>
+        <span class="logout" onclick="handleLogout()">Logout</span>
+    </div>
+    <div id="pending-list"></div>
+
+    <div class="dash-header" style="margin-top:32px;">
+        <h2>📅 Home Appointments</h2>
+    </div>
+    <div id="appointments-list"></div>
+</div>
+
+</div>
+
+<script>
+    const API = "https://vahan-seva.onrender.com";
+
+    let adminToken = "";
+
+    async function handleLogin() {
+        const username = document.getElementById("username").value.trim();
+        const password = document.getElementById("password").value.trim();
+        const errorEl = document.getElementById("login-error");
+        errorEl.textContent = "";
+
+        try {
+            const res = await fetch(`${API}/api/admin/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await res.json();
+            if (data.success) {
+                adminToken = data.data.token;
+                document.getElementById("login-section").style.display = "none";
+                document.getElementById("dashboard-section").style.display = "block";
+                loadPending();
+            } else {
+                errorEl.textContent = "" + data.message;
+            }
+        } catch (e) {
+            errorEl.textContent = "Cannot reach server. Check your API URL.";
+        }
+    }
+
+    async function loadPending() {
+    const listEl = document.getElementById("pending-list");
+    listEl.innerHTML = "<p style='color:#999;'>Loading...</p>";
+
+    const res = await fetch(`${API}/api/admin/pending`, {
+        headers: { "x-admin-token": adminToken }
+    });
+    const data = await res.json();
+
+    if (!data.success || data.data.length === 0) {
+        listEl.innerHTML = `<div class="empty"> No pending approvals right now.</div>`;
+        loadAppointments();
+        return;
+    }
+
+    listEl.innerHTML = "";
+    data.data.forEach(m => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.id = `card-${m.id}`;
+        card.innerHTML = `
+            <div class="card-info">
+                <div class="card-name">${m.shop_name} <span class="badge-pending">Pending</span></div>
+                <div class="card-sub">
+                     ${m.full_name} &nbsp;|&nbsp;  ${m.phone}<br>
+                     ${m.shop_address}<br>
+                     ${m.services || "Not specified"} &nbsp;|&nbsp; ${m.experience_years} yrs exp<br>
+                     Servicing: ₹${m.price_service || "N/A"} &nbsp;|&nbsp; Washing: ₹${m.price_wash || "N/A"}
+                </div>
+                <div id="docs-${m.id}" style="margin-top:10px;"></div>
+                <div id="reject-box-${m.id}" style="display:none; margin-top:10px;">
+                    <textarea id="reject-reason-${m.id}" placeholder="Enter reason for rejection..." 
+                        style="width:100%; padding:10px; border-radius:10px; border:1px solid #e0e5f0; font-size:13px; resize:vertical; min-height:80px;"></textarea>
+                    <button class="btn btn-red" style="margin-top:8px;" onclick="confirmReject(${m.id})">Confirm Reject</button>
+                    <button onclick="cancelReject(${m.id})" style="margin-top:8px; margin-left:8px; background:none; border:none; color:#666; cursor:pointer; font-size:13px;">Cancel</button>
+                </div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:8px; min-width:110px; align-items:flex-end;">
+                <button class="btn btn-outline" onclick="loadDocs(${m.id})"> View Docs</button>
+                <button class="btn btn-green" onclick="approveMechanic(${m.id}, this)"> Approve</button>
+                <button class="btn btn-red" onclick="showRejectBox(${m.id})"> Reject</button>
+            </div>
+        `;
+        listEl.appendChild(card);
+    });
+        loadAppointments();
+}
+
+async function loadDocs(mechanicId) {
+    const docsEl = document.getElementById(`docs-${mechanicId}`);
+    docsEl.innerHTML = "<p style='font-size:12px; color:#999;'>Loading documents...</p>";
+
+    const res = await fetch(`${API}/api/mechanic/${mechanicId}/docs`, {
+        headers: { "x-admin-token": adminToken }
+    });
+    const data = await res.json();
+
+    if (!data.success || data.data.length === 0) {
+        docsEl.innerHTML = "<p style='font-size:12px; color:#e53935;'>No documents uploaded.</p>";
+        return;
+    }
+
+    docsEl.innerHTML = data.data.map(doc => `
+        <div style="margin-bottom:8px;">
+            <div style="font-size:11px; font-weight:700; color:#555; margin-bottom:4px;">
+                ${doc.doc_type === 'aadhar' ? ' Aadhaar Card' :  'Shop Photo'}
+            </div>
+            <img src="${doc.image_data}" style="width:100%; max-width:300px; border-radius:10px; border:1px solid #eee;" />
+        </div>
+    `).join('');
+}
+
+async function approveMechanic(mechanicId, btn) {
+    btn.disabled = true;
+    btn.textContent = "Approving...";
+
+    const res = await fetch(`${API}/api/admin/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-token": adminToken },
+        body: JSON.stringify({ mechanic_id: mechanicId })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+        document.getElementById(`card-${mechanicId}`).style.opacity = "0.4";
+        btn.textContent = " Approved";
+    } else {
+        btn.textContent = " Failed";
+        btn.disabled = false;
+    }
+}
+
+function showRejectBox(mechanicId) {
+    document.getElementById(`reject-box-${mechanicId}`).style.display = "block";
+}
+
+function cancelReject(mechanicId) {
+    document.getElementById(`reject-box-${mechanicId}`).style.display = "none";
+}
+
+async function confirmReject(mechanicId) {
+    const reason = document.getElementById(`reject-reason-${mechanicId}`).value.trim();
+    if (!reason) {
+        alert("Please enter a reason for rejection.");
+        return;
+    }
+
+    const res = await fetch(`${API}/api/admin/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-token": adminToken },
+        body: JSON.stringify({ mechanic_id: mechanicId, reason: reason })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+        const card = document.getElementById(`card-${mechanicId}`);
+        card.style.opacity = "0.4";
+        card.querySelector('.badge-pending').textContent = "Rejected";
+        card.querySelector('.badge-pending').style.background = "#fce8e8";
+        card.querySelector('.badge-pending').style.color = "#c62828";
+    }
+}
+    async function loadAppointments() {
+    const listEl = document.getElementById("appointments-list");
+    listEl.innerHTML = "<p style='color:#999;'>Loading...</p>";
+
+    const res = await fetch(`${API}/api/appointments`, {
+        headers: { "x-admin-token": adminToken }
+    });
+    const data = await res.json();
+
+    if (!data.success || data.data.length === 0) {
+        listEl.innerHTML = `<div class="empty">No appointments yet.</div>`;
+        return;
+    }
+
+    listEl.innerHTML = "";
+   data.data.forEach(a => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+        <div class="card-info">
+            <div class="card-name">${a.full_name} <span class="badge-pending" id="appt-status-${a.id}">${a.status}</span></div>
+            <div class="card-sub">
+                Contact: No. ${a.phone}<br>
+                Address:  ${a.address}<br>
+                Vehicle: ${a.vehicle_type || "Not specified"}<br>
+                Issue: ${a.issue}<br>
+                Appointment Time:  ${a.preferred_datetime || "Any time"}<br>
+                Booked On: ${new Date(a.created_at).toLocaleString()}
+            </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px; min-width:140px; align-items:flex-end;">
+            <button class="btn btn-blue" id="alert-btn-${a.id}" onclick="sendAlertToMechanics(${a.id}, '${a.address}', '${a.issue.replace(/'/g, '')}')">
+                🔔 Alert Nearby Mechanics
+            </button>
+        </div>
+    `;
+    listEl.appendChild(card);
+});
+}
+    async function sendAlertToMechanics(appointmentId, address, issue) {
+    const btn = document.getElementById(`alert-btn-${appointmentId}`);
+    btn.disabled = true;
+    btn.textContent = "Sending...";
+
+    const res = await fetch(`${API}/api/appointments/alert`, {
+        method: "POST",
+        headers: { 
+            "Content-Type": "application/json",
+            "x-admin-token": adminToken 
+        },
+        body: JSON.stringify({ appointment_id: appointmentId })
+    });
+    const data = await res.json();
+
+    if (data.success) {
+        btn.textContent = "✅ Alert Sent!";
+        btn.style.background = "#0aa04f";
+        document.getElementById(`appt-status-${appointmentId}`).textContent = "Alerted";
+        document.getElementById(`appt-status-${appointmentId}`).style.background = "#eafff2";
+        document.getElementById(`appt-status-${appointmentId}`).style.color = "#0b7f40";
+    } else {
+        btn.textContent = "❌ Failed";
+        btn.disabled = false;
+    }
+}
+    
+    function handleLogout() {
+        adminToken = "";
+        document.getElementById("login-section").style.display = "block";
+        document.getElementById("dashboard-section").style.display = "none";
+        document.getElementById("username").value = "";
+        document.getElementById("password").value = "";
+    }
+</script>
+</body>
+</html>
